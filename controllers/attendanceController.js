@@ -1,19 +1,30 @@
 const Attendance = require('../models/Attendance');
 
-// Check-in for the day
 exports.checkIn = async (req, res) => {
-  const userId = req.body.userId; // Get userId from request body
+  const userId = req.body.userId;
   const today = new Date().toISOString().split('T')[0];
 
   try {
     let attendance = await Attendance.findOne({ userId, date: today });
-    if (attendance) return res.status(400).json({ msg: 'Already checked in today' });
 
-    attendance = new Attendance({
-      userId,
-      checkIn: new Date(),
-      date: today,
-    });
+    if (!attendance) {
+      // Create a new attendance record for today
+      attendance = new Attendance({
+        userId,
+        date: today,
+        sessions: [{ checkIn: new Date() }],
+      });
+    } else {
+      // Check if the last session is missing a check-out
+      const lastSession = attendance.sessions[attendance.sessions.length - 1];
+      if (lastSession && !lastSession.checkOut) {
+        return res.status(400).json({
+          msg: 'You must check out before checking in again.',
+        });
+      }
+      // Add a new session for this check-in
+      attendance.sessions.push({ checkIn: new Date() });
+    }
 
     await attendance.save();
     res.json({ msg: 'Checked in successfully', attendance });
@@ -22,17 +33,31 @@ exports.checkIn = async (req, res) => {
   }
 };
 
-// Check-out for the day
+
+
+
 exports.checkOut = async (req, res) => {
-  const userId = req.body.userId; // Get userId from request body
+  const userId = req.body.userId;
   const today = new Date().toISOString().split('T')[0];
 
   try {
     const attendance = await Attendance.findOne({ userId, date: today });
-    if (!attendance || attendance.checkOut)
-      return res.status(400).json({ msg: 'Check-in record not found or already checked out' });
+    if (!attendance) {
+      return res.status(400).json({ msg: 'Check-in record not found for today.' });
+    }
 
-    attendance.checkOut = new Date();
+    const lastSession = attendance.sessions[attendance.sessions.length - 1];
+    if (!lastSession || lastSession.checkOut) {
+      return res.status(400).json({ msg: 'No active check-in session found to check out.' });
+    }
+
+    const checkOutTime = new Date();
+    const hoursWorked =
+      (checkOutTime.getTime() - new Date(lastSession.checkIn).getTime()) / (1000 * 60 * 60);
+
+    lastSession.checkOut = checkOutTime;
+    lastSession.hours = hoursWorked;
+
     await attendance.save();
     res.json({ msg: 'Checked out successfully', attendance });
   } catch (error) {

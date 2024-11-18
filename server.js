@@ -2,7 +2,8 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const http = require('http'); // For keep-alive requests
+const http = require('http');
+const https = require('https'); // Import https module
 
 // Load environment variables
 dotenv.config();
@@ -36,11 +37,12 @@ const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 // Keep-Alive Mechanism
-const keepAliveUrl = 'https://progress-portal.onrender.com/keep-alive';
+const keepAliveUrl = 'https://progress-portal.onrender.com/keep-alive'; // Replace with your Render URL
 setInterval(() => {
-  http.get(keepAliveUrl, (res) => {
+  const client = keepAliveUrl.startsWith('https') ? https : http; // Choose the correct module
+  client.get(keepAliveUrl, (res) => {
     console.log(`Keep-alive ping sent: ${res.statusCode}`);
   }).on('error', (err) => {
     console.error(`Keep-alive error: ${err.message}`);
   });
-}, 5000);
+}, 5000); // Ping every 5 seconds

@@ -64,3 +64,25 @@ exports.checkOut = async (req, res) => {
     res.status(500).send('Server Error');
   }
 };
+
+
+exports.getAttendanceStatus = async (req, res) => {
+  const userId = req.query.userId;
+  const today = new Date().toISOString().split('T')[0];
+
+  try {
+    const attendance = await Attendance.findOne({ userId, date: today });
+
+    if (!attendance || attendance.sessions.length === 0) {
+      return res.json({ checkedIn: false });
+    }
+
+    const lastSession = attendance.sessions[attendance.sessions.length - 1];
+    res.json({
+      checkedIn: !lastSession.checkOut,
+      attendance,
+    });
+  } catch (error) {
+    res.status(500).send('Server Error');
+  }
+};

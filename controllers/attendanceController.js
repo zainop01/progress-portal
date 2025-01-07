@@ -74,13 +74,30 @@ exports.getAttendanceStatus = async (req, res) => {
     const attendance = await Attendance.findOne({ userId, date: today });
 
     if (!attendance || attendance.sessions.length === 0) {
-      return res.json({ checkedIn: false });
+      return res.json({ checkedIn: false, totalHours: '0h 0m' });
     }
+
+    const totalMinutes = attendance.sessions.reduce((total, session) => {
+      if (session.checkIn && session.checkOut) {
+        return (
+          total +
+          (new Date(session.checkOut).getTime() -
+            new Date(session.checkIn).getTime()) /
+            (1000 * 60)
+        );
+      }
+      return total;
+    }, 0);
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    const totalHours = `${hours}h ${minutes}m`;
 
     const lastSession = attendance.sessions[attendance.sessions.length - 1];
     res.json({
       checkedIn: !lastSession.checkOut,
       attendance,
+      totalHours,
     });
   } catch (error) {
     res.status(500).send('Server Error');
